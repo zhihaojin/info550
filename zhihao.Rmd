@@ -33,7 +33,7 @@ hour: Observation EST time in hour.
 
 ```{r load_combine_data}
 dayi="001"
-filepath<-paste0("C:/Users/zjin75/OneDrive - Emory University/Emory/LiuGroup/WRF/DATA/GOES_G16/",dayi)
+filepath<-paste0("./GOES_",dayi)
   file_list<-dir(filepath,pattern = ".csv")
   daily_data<-NULL
   for(filei in file_list){
@@ -63,7 +63,7 @@ filepath<-paste0("C:/Users/zjin75/OneDrive - Emory University/Emory/LiuGroup/WRF
   names(daily_data.dcast)[3:ncol(daily_data.dcast)]<-paste0(dayi,"_h_",names(daily_data.dcast)[3:ncol(daily_data.dcast)])
   
   #load the template polygon to fill the data into a teissian polygon and then transform into raster
-  load("C:/Users/zjin75/OneDrive - Emory University/Emory/LiuGroup/WRF/DATA/GOES_G16/GOES_Tessian_Polygon.RData")
+  load("GOES_Tessian_Polygon.RData")
   daily_poly<-merge(GOES_polygon,daily_data.dcast,by=c("lon","lat"))
   daily.rast<-stack()
   
