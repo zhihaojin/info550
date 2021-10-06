@@ -1,7 +1,6 @@
 ---
 title: "INFO550_Zhihao Jin"
 author: "Zhihao Jin"
-date: "10/06/2021"
 output: html_document
 ---
 
@@ -24,22 +23,21 @@ library(rasterVis)
 library(animation)
 ```
 
-## Load and combine all .csv data within one day. Use day 145 as an example.
+## Load and combine all .csv data within one day. Use day 001 as an example, all .csv files without any records were not saved.
 Observation is recorded every 5 minutes.
 lon:Longitude
 lat:Latitude
 AOD:Aerosol optial depth
 DQF:Data quality flag
-hour: Observation time in hour.
+hour: Observation EST time in hour.
 
 ```{r load_combine_data}
-dayi=145
+dayi="001"
 filepath<-paste0("C:/Users/zjin75/OneDrive - Emory University/Emory/LiuGroup/WRF/DATA/GOES_G16/",dayi)
-  setwd(filepath)
-  file_list<-dir(pattern = ".csv")
+  file_list<-dir(filepath,pattern = ".csv")
   daily_data<-NULL
   for(filei in file_list){
-    GOES_nyc<-read.csv(filei)
+    GOES_nyc<-read.csv(paste0(filepath,"/",filei))
     GOES_nyc<-na.omit(GOES_nyc)
     daily_data<-rbind(daily_data,GOES_nyc)
     
@@ -64,35 +62,31 @@ filepath<-paste0("C:/Users/zjin75/OneDrive - Emory University/Emory/LiuGroup/WRF
   #change column name into form day_h_hour
   names(daily_data.dcast)[3:ncol(daily_data.dcast)]<-paste0(dayi,"_h_",names(daily_data.dcast)[3:ncol(daily_data.dcast)])
   
-  #turn csv data into spatial point dataframe
-  daily_sp<-SpatialPointsDataFrame(coords = daily_data.dcast[,1:2],data = daily_data.dcast[,3:ncol(daily_data.dcast)],
-                                   proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
+  #load the template polygon to fill the data into a teissian polygon and then transform into raster
+  load("C:/Users/zjin75/OneDrive - Emory University/Emory/LiuGroup/WRF/DATA/GOES_G16/GOES_Tessian_Polygon.RData")
+  daily_poly<-merge(GOES_polygon,daily_data.dcast,by=c("lon","lat"))
+  daily.rast<-stack()
   
-  #transform the coordinate from WGS84 (Unit:degree) into UTM (Unit:meter)
-  UTM<-"+proj=utm +zone=18 +ellps=GRS80 +units=m +no_defs"
-  daily_sp.utm<-spTransform(daily_sp,CRSobj = UTM)
+  #the loop below may take 3 minutes
+  for(i in 3:ncol(daily_poly)){
+    daily.rast<-stack(daily.rast,rasterize(daily_poly,domain_20degree_grid,names(daily_poly)[i]))
+  }
+  names(daily.rast)<-names(daily_poly)[3:length(names(daily_poly))]
   
-  #create project grids (2km*2km) template for raster projection
-  domain_extent<-extent(daily_sp.utm)
-  domain_2km_grid <- raster(domain_extent, resolution=c(2000,2000), crs="+proj=utm +zone=18 +ellps=GRS80 +units=m +no_defs")
-  
-  #project spatial point dataframe into raster
-  daily_sp.rast<-rasterize(daily_sp.utm,domain_2km_grid,names(daily_sp.utm)[1:ncol(daily_sp.utm)],fun=mean)
 
 ```
 
 ## Figures
-The figure shows a large missing part because the satellite observation is based on the sunlight.It can be interfered by the weather, cloud and time. The time is UTC time, which should be reduced 4 hours to be transformed to EST time (e.g., 10AM UTC -> 6AM UTC).
+The figure shows a large missing part both spatially and temporally because the satellite observation is based on the sunlight.It can be interfered by the image angels, weather, cloud, and time.
 
 ```{R create_figure}
 # load shapefile for US states
 shapefile<- getData("GADM", country = "US", level =1)
-shapefile <- spTransform(shapefile,CRS("+proj=utm +zone=18 +ellps=GRS80 +units=m +no_defs"))
 
 # create GIF showing all availble hour AOD in the north-east US
   saveGIF({
-    for (i in c(1:nlayers(daily_sp.rast))) {
-      l<-levelplot(daily_sp.rast[[i]], par.settings = BuRdTheme(), margin=FALSE, main=list(paste0(names(daily_sp.rast)[i]),adj=0,line=0))+
+    for (i in c(1:nlayers(daily.rast))) {
+      l<-levelplot(daily.rast[[i]], par.settings = BuRdTheme(), margin=FALSE, main=list(paste0(names(daily.rast)[i]),adj=0,line=0))+
         latticeExtra::layer(sp.polygons(shapefile,col = "black",lwd=2))
       plot(l)
     }
