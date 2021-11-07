@@ -19,9 +19,9 @@ for(p in pkgs){
 To execute the analysis, from the project folder you can run 
 
 ``` bash
-Rscript -e "rmarkdown::render('zhihao.Rmd')"
+make
 ```
 
-This will create a file called `zhihao.html` output in your directory that contains the results.
+This will create a file called `report.html` output in your directory that contains the results.
 
 
